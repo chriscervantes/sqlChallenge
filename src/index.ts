@@ -20,7 +20,7 @@ async function main() {
   // Item Name (Items.name) | Price (Items.price) | Quantity (CartItems.quantity) | Total Price (CartItems.quantity * Items.price) | Diet Tag Names (DietTags.name)
 
   const query = {
-    text: `Select
+    text: `Select distinct
     i."name" as ItemName,
     
     case when po."workspaceId" > 0 and 
@@ -39,8 +39,12 @@ async function main() {
            else i."price" * ci."quantity"
       end
     end as totalPrice,
-    dt."name"
-    
+    ARRAY(SELECT  dt."name" 
+    FROM public."Items"  join public."ItemDietTags" idt on "Items"."id" = idt."itemId"
+                  join public."DietTags" dt on dt."id" = idt."dietTagId"
+    where "Items".id = i."id"
+  group by i."name", dt."name", i."id", dt."id"
+  order by i."name" asc) as dietName
   from 
     public."Carts" c join public."CartItems" as ci on ci."id" = c."id" 
             join public."Items" as i on ci."itemId" = i."id"
@@ -49,10 +53,11 @@ async function main() {
             left join public."PriceOverrides" as po on po."workspaceId" = c."workspaceId"
                                   
   where
-    c."workspaceId" = $1 `,
+    c."workspaceId" = $1;`,
     values: [workspaceId],
   };
 
+  console.log(workspaceId);
   // Your code here
   const result = await client.query(query);
 
